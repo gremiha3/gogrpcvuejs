@@ -1,0 +1,150 @@
+sudo apt install protobuf-compiler
+https://grpc.io/docs/languages/go/quickstart/
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+
+Update your PATH so that the protoc compiler can find the plugins:
+$ export PATH="$PATH:$(go env GOPATH)/bin"
+установить extension vscode-proto3
+---------------------------------------
+создать файл в проекте api/proto/adder.proto
+---------------------------------------
+syntax = "proto3";
+package api;
+option go_package = "./";
+
+service Adder {
+    rpc Add(AddRequest) returns (AddResponse){}
+}
+message AddRequest{
+    int32 x = 1;
+    int32 y = 2;
+}
+message AddResponse{
+    int32 result = 1;
+}
+-------------------------------------------------
+Генерируем файлы сервера и клиента:
+Команда из корня проекта
+
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    api/proto/adder.proto
+--------------------------------------------------
+в pkg/api мы кладем получившиеся два файла adder_grpc.pb.go и adder.pb.go
+---------------------------------------------------
+go mod tidy
+--------------------------------------------------
+создаем cmd/server/main.go
+
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"net"
+
+	pb "gogrpcvuejs/pkg/api"
+
+	"google.golang.org/grpc"
+)
+
+var (
+	port = flag.Int("port", 50051, "The server port")
+)
+
+// server is used to implement helloworld.GreeterServer.
+type server struct {
+	pb.UnimplementedAdderServer
+}
+
+// Add implements Add.AdderServer
+func (s *server) Add(ctx context.Context, in *pb.AddRequest) (*pb.AddResponse, error) {
+	log.Printf("Received: %v, %v", in.GetX(), in.GetY())
+	return &pb.AddResponse{Result: in.GetX() + in.GetY()}, nil
+}
+
+func main() {
+	flag.Parse()
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+	s := grpc.NewServer()
+	pb.RegisterAdderServer(s, &server{})
+	log.Printf("server listening at %v", lis.Addr())
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
+	}
+}
+---------------------------------------------------------
+создаем cmd/client/main.go
+
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+	"strconv"
+	"time"
+
+	pb "gogrpcvuejs/pkg/api"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+var (
+	addr = flag.String("addr", "localhost:50051", "the address to connect to")
+)
+
+func main() {
+	flag.Parse()
+	if flag.NArg() < 2 {
+		log.Fatal("not enough arguments")
+	}
+
+	x, err := strconv.Atoi(flag.Arg(0))
+	if err != nil {
+		log.Fatal(err)
+	}
+	y, err := strconv.Atoi(flag.Arg(1))
+	if err != nil {
+		log.Fatal(err)
+	}
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := pb.NewAdderClient(conn)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	res, err := c.Add(ctx, &pb.AddRequest{X: int32(x), Y: int32(y)})
+	if err != nil {
+		log.Fatalf("could not greet: %v", err)
+	}
+	log.Println(res.GetResult())
+
+}
+---------------------------------------
+go build -v /cmd/server
+go build -v /cmd/client
+-----------------------------------
+в первом терминале запускаем:
+./server
+------------------------------------
+во втором терминале запускаем:
+./client 3 5
+
+возвращается что то вроде:
+2024/01/29 18:13:40 8
+ 8 - это сумма 3 и 5, которую нам отправил сервер обратно
+-------------------------------- 
+
+
