@@ -1,14 +1,14 @@
-syntax = "proto3";
-package api;
-option go_package = "./";
+syntax = "proto3"; //версия = 3
+package api; //имя пакета = api
+option go_package = "./"; //путь до пакета, где будут лежать сгенерированные файлы
 
-service Adder {
-    rpc Add(AddRequest) returns (AddResponse){}
+service Adder {//объявляем RPC сервис интерфейс
+    rpc Add(AddRequest) returns (AddResponse){} //определяем службу RPC с помощью метода
 }
 
-message AddRequest{
-    int32 x = 1;
-    int32 y = 2;
+message AddRequest{//имя структуры сообщения
+    int32 x = 1;//поля сообщения, их номера уникальны,
+    int32 y = 2;//идут с 1, и, лучше, до 15
 }
 
 message AddResponse{
