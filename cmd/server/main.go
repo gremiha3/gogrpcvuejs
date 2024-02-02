@@ -44,7 +44,7 @@ func main() {
 		log.Fatalf("failed to listen: %v", err) //выводим лог в терминал и закрываем программу
 	}
 	s := grpc.NewServer()                //создаем gRPC-сервер, который еще не имеет зарегистрированных служб и не начал принимать запросы.
-	pb.RegisterAdderServer(s, &server{}) //регистрируем службу AdderServer на сервере "s" с указанием адреса структуры server
+	pb.RegisterAdderServer(s, &server{}) //регистрируем службу AdderServer на сервере "s" с указанием
 	log.Printf("server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
